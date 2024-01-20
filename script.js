@@ -13,14 +13,55 @@ const now = new Date();
 const normalizedDay = normalizeDate(now);
 const rand_dic = [];
 
+let tree_wid_ave;
+let tree_wid_amp;
+let tree_len_ave;
+let tree_len_amp;
+let tree_dir_amp;
+let tree_ang_ave;
+let tree_ang_amp;
+let tree_col_amp;
+let tree_col_rat;
+
 let branchID = 0;
 let randID = 0;
+let count = 0;
 InitRand();
+InitTreeParams();
 
+function GrowthRatio(gen, num) {
+    let val = num / 20 - (5 - gen);
+    if (val < 0) {
+        val = 0;
+    } else if (val > 1) {
+        val = 1;
+    }
+    return val;
+}
+function GrowthRatio2(gen, num) {
+    let val = num / 20 - (6 - gen);
+    if (val < 0) {
+        val = 0;
+    } else if (val > 1) {
+        val = 1;
+    }
+    return val;
+}
 function InitRand() { 
     for (let i = 0; i < 1024 * 2; i++) { 
         rand_dic.push(Math.random());
     }
+}
+function InitTreeParams() {
+    tree_wid_ave = 0.45 + 0.3 * Math.random();
+    tree_wid_amp = 0.1  + 0.2 * Math.random();
+    tree_len_ave = 0.6  + 0.4 * Math.random();
+    tree_len_amp = 0.1  + 0.3 * Math.random();
+    tree_dir_amp = 30 * Math.random();
+    tree_ang_ave = 15 + 40 * Math.random();
+    tree_ang_amp = 5 + 35 * Math.random();
+    tree_col_amp = 0.02 + 0.2 * Math.random();
+    tree_col_rat = Math.random();
 }
 function MyRandom() { 
     return rand_dic[randID++];
@@ -41,14 +82,14 @@ function boxMuller01(ave) {
     while (u === 0) u = MyRandom();
     while (v === 0) v = MyRandom();
     
-    const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * 0.12 + ave + 1;
+    const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * tree_col_amp + ave + 1;
     return num - Math.floor(num);
 }
 function randomColor(orig) { 
     const color = new THREE.Color();
     color.setHSL(boxMuller01(0.7 - normalizedDay), 1.0, 0.7);
     let colVec = new THREE.Vector3(color.r, color.g, color.b);
-    return colVec.lerp(orig, MyRandom());
+    return colVec.lerp(orig, MyRandom() * tree_col_rat);
 }
 function randomColor() {
     const color = new THREE.Color();
@@ -59,29 +100,47 @@ function randomColor() {
 function branch(gen, T)
 {
     if (gen > 0) {
-        T.changeLen(0.8);
-        T.changeWid(0.5);
+        T.changeLen(tree_len_ave);
+        T.changeWid(tree_wid_ave);
 
         const T1 = T.duplicate();
         const T2 = T.duplicate();
-        T1.roll(deg2rad(110 + MyRandom() * 20));
-        T1.turn(deg2rad(20 + MyRandom() * 20));
-        T2.roll(deg2rad(-110 - MyRandom() * 20));
-        T2.turn(deg2rad(20 + MyRandom() * 20));
-        T.roll(deg2rad(-10 + MyRandom() * 20));
-        T.turn(deg2rad(20 + MyRandom() * 20));
 
-        T.changeLen(0.8 + MyRandom() * 0.4);
-        T.changeWid(0.8 + MyRandom() * 0.4);
-        T1.changeLen(0.8 + MyRandom() * 0.4);
-        T1.changeWid(0.8 + MyRandom() * 0.4);
-        T2.changeLen(0.8 + MyRandom() * 0.4);
-        T2.changeWid(0.8 + MyRandom() * 0.4);
+        let ave_a = 120;
+        let amp_a = tree_dir_amp;
+        let min_a = ave_a - amp_a / 2;
+
+        let ave_b = tree_ang_ave;
+        let amp_b = tree_ang_amp;
+        let min_b = ave_b - amp_b / 2;
+
+        T1.roll(deg2rad(ave_a + MyRandom() * amp_a));
+        T1.turn(deg2rad(min_b + MyRandom() * amp_b));
+
+        ave_a = -120;
+        min_a = ave_a - amp_a / 2;
+        T2.roll(deg2rad(min_a + MyRandom() * amp_a));
+        T2.turn(deg2rad(min_b + MyRandom() * amp_b));
+
+        ave_a = 0;
+        min_a = ave_a - amp_a / 2;
+        T.roll(deg2rad(ave_a + MyRandom() * amp_a));
+        T.turn(deg2rad(min_b + MyRandom() * amp_b));
+
+        const ave_r = 1.0;
+        const amp_r = tree_wid_amp;
+        const min_r = ave_r - amp_r / 2;
+        T.changeLen(min_r + MyRandom() * amp_r);
+        T.changeWid(min_r + MyRandom() * amp_r);
+        T1.changeLen(min_r + MyRandom() * amp_r);
+        T1.changeWid(min_r + MyRandom() * amp_r);
+        T2.changeLen(min_r + MyRandom() * amp_r);
+        T2.changeWid(min_r + MyRandom() * amp_r);
 
         const seg = 3;
-        T.draw_windingly(seg);
-        T1.draw_windingly(seg);
-        T2.draw_windingly(seg);
+        T.draw_windingly(seg, GrowthRatio(gen, count), GrowthRatio2(gen, count));
+        T1.draw_windingly(seg, GrowthRatio(gen, count), GrowthRatio2(gen, count));
+        T2.draw_windingly(seg, GrowthRatio(gen, count), GrowthRatio2(gen, count));
 
         branch(gen - 1, T);
         branch(gen - 1, T1);
@@ -112,7 +171,7 @@ class Turtle {
         //draw_line(this.pos, this.pos.clone().add(this.front.clone().multiplyScalar(this.length)), this.width);
         move();
     }
-    draw_windingly(segments) {
+    draw_windingly(segments, growth, growth2) {
         branchID++;
         let verts = [];
         let colors = [];
@@ -122,7 +181,7 @@ class Turtle {
 
         for (let seg = 0; seg < segments - 1; seg++) {
             const slide_dir = MyRandom() * Math.PI;
-            const slide_dis = MyRandom() * this.width;
+            const slide_dis = MyRandom() * this.width * growth;
             let tmp_vec = nor.clone();
             tmp_vec.multiplyScalar(Math.cos(slide_dir));
             tmp_vec.add(this.up.clone().multiplyScalar(Math.sin(slide_dir)));
@@ -137,11 +196,12 @@ class Turtle {
             { 
                 let ratio = seg / segments
                 let tmp_vec = this.pos.clone();
-                tmp_vec.add(this.front.clone().multiplyScalar(this.length * ratio))
+                tmp_vec.add(this.front.clone().multiplyScalar(this.length * ratio * growth))
                 let tmp_vec2 = nor.clone();
                 tmp_vec2.multiplyScalar(Math.cos(t));
                 tmp_vec2.add(this.up.clone().multiplyScalar(Math.sin(t)));
-                tmp_vec2.multiplyScalar(this.width * (1.0 - 0.5 * ratio));
+                let wid_rat = 0.5 * growth2;
+                tmp_vec2.multiplyScalar(this.width * growth * (1.0 - (1.0 - wid_rat) * ratio));
                 tmp_vec.add(tmp_vec2);
                 if (seg > 0 && seg < segments) { 
                     tmp_vec.add(slide_vec[seg - 1]);
@@ -163,7 +223,7 @@ class Turtle {
         }
         verts.push(this.pos.x, this.pos.y, this.pos.z);
         colors.push(this.col.x, this.col.y, this.col.z);
-        this.pos.add(this.front.clone().multiplyScalar(this.length));
+        this.pos.add(this.front.clone().multiplyScalar(this.length * growth));
         verts.push(this.pos.x, this.pos.y, this.pos.z);
         colors.push(end_col.x, end_col.y, end_col.z);
         this.col = end_col.clone();
@@ -231,9 +291,10 @@ renderer.setAnimationLoop(animation);
 document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
+const gen = 4;
 let t = new Turtle();
-t.draw_windingly(3);
-branch(4, t);
+t.draw_windingly(3, GrowthRatio(gen + 1, count), GrowthRatio2(gen + 1, count));
+branch(gen, t);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
@@ -247,33 +308,35 @@ function animation(time) {
 
     let t = time / 5000;
 
-    for (let i = 0; i < branchID; i++) {
-        console.log(i);
-        if (meshes[i].geometry) {
-            meshes[i].geometry.dispose();
-        }
-        if (meshes[i].material) {
-            if (meshes[i].material instanceof Array) {
-                meshes[i].material.forEach(material => material.dispose());
-            } else {
-                meshes[i].material.dispose();
+    if (count < 100) {
+        count++;
+        for (let i = 0; i < branchID; i++) {
+            if (meshes[i].geometry) {
+                meshes[i].geometry.dispose();
             }
+            if (meshes[i].material) {
+                if (meshes[i].material instanceof Array) {
+                    meshes[i].material.forEach(material => material.dispose());
+                } else {
+                    meshes[i].material.dispose();
+                }
+            }
+            scene.remove(meshes[i]);
+
+            //vertices = meshes[i].geometry.attributes.position.array;
+            //meshes[i].geometry.attributes.position.needsUpdate = true;
+            //meshes[i].geometry.computeBoundingBox();
+            //meshes[i].geometry.computeBoundingSphere();
         }
-        scene.remove(meshes[i]);
+        meshes.length = 0;
 
-        //vertices = meshes[i].geometry.attributes.position.array;
-        //meshes[i].geometry.attributes.position.needsUpdate = true;
-        //meshes[i].geometry.computeBoundingBox();
-        //meshes[i].geometry.computeBoundingSphere();
+        randID = 0;
+        branchID = 0;
+        t = new Turtle();
+        t.draw_windingly(3, GrowthRatio(gen + 1, count), GrowthRatio2(gen + 1, count));
+        branch(gen, t);
+
     }
-    meshes.length = 0;
-
-    randID = 0;
-    branchID = 0;
-    t = new Turtle();
-    t.draw_windingly(3);
-    branch(4, t);
-
 	controls.update(); 
 	renderer.render(scene, camera);
 }
