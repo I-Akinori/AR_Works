@@ -1,13 +1,3 @@
-const mesh_vertices = [];
-mesh_vertices.push(-1.0, -1.0, 0.0);
-mesh_vertices.push(1.0, -1.0, 0.0);
-mesh_vertices.push(1.0, 1.0, 0.0);
-mesh_vertices.push(-1.0, 1.0, 0.0);
-
-const mesh_indices = [];
-mesh_indices.push(0, 1, 2);
-mesh_indices.push(2, 3, 0);
-
 const meshes = [];
 const now = new Date();
 const normalizedDay = normalizeDate(now);
@@ -28,9 +18,10 @@ let randID = 0;
 let count = 0;
 InitRand();
 InitTreeParams();
+var group = new THREE.Group();
 
 function GrowthRatio(gen, num) {
-    let val = num / 20 - (5 - gen);
+    let val = num / 60 - (5 - gen);
     if (val < 0) {
         val = 0;
     } else if (val > 1) {
@@ -39,7 +30,7 @@ function GrowthRatio(gen, num) {
     return val;
 }
 function GrowthRatio2(gen, num) {
-    let val = num / 20 - (6 - gen);
+    let val = num / 60 - (6 - gen);
     if (val < 0) {
         val = 0;
     } else if (val > 1) {
@@ -149,11 +140,11 @@ function branch(gen, T)
 }
 class Turtle {
     constructor() { 
-        this.length = 1 * 0.2;
-        this.width = 0.15 * 0.2;
+        this.length = 1 * 0.8;
+        this.width = 0.15 * 0.6;
         this.pos = new THREE.Vector3(0, 0, 0);
-        this.front = new THREE.Vector3(0, 0, 1);
-        this.up = new THREE.Vector3(0, 1, 0);
+        this.front = new THREE.Vector3(0, 1, 0);
+        this.up = new THREE.Vector3(0, 0, 1);
         this.col = new THREE.Vector3(1, 1, 1); //randomColor();
     }
     
@@ -252,7 +243,7 @@ class Turtle {
         const mesh_material = new THREE.MeshLambertMaterial({ vertexColors: THREE.VertexColors });
         const mesh = new THREE.Mesh(mesh_geometry, mesh_material);
         meshes.push(mesh);
-        scene.add(mesh);
+        group.add(mesh);
     }
     move() {
         this.pos = this.pos.clone().add(this.front.clone().multiplyScalar(this.length));
@@ -280,16 +271,61 @@ class Turtle {
 }
 
 const width = window.innerWidth, height = window.innerHeight;
-const camera = new THREE.OrthographicCamera(-1, +1, height / width, -height / width, 0.01, 1000);
-camera.position.z = 1;
+const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true
+});
+renderer.setClearColor(new THREE.Color(), 0);
+renderer.setSize(width, height);
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.top = '0px';
+renderer.domElement.style.left = '0px';
+document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+scene.visible = false;
+const camera = new THREE.OrthographicCamera(-1, +1, height / width, -height / width, 0.01, 1000);
+scene.add(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(width, height);
-renderer.setAnimationLoop(animation);
-document.body.appendChild(renderer.domElement);
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
+scene.add(group);
+
+const arToolkitSource = new THREEx.ArToolkitSource({
+    sourceType: 'webcam'
+});
+
+arToolkitSource.init(() => {
+    setTimeout(() => {
+        onResize();
+    }, 2000);
+});
+
+addEventListener('resize', () => {
+    onResize();
+});
+
+function onResize() {
+    arToolkitSource.onResizeElement();
+    arToolkitSource.copyElementSizeTo(renderer.domElement);
+    if (arToolkitContext.arController !== null) {
+        arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
+    }
+};
+
+const arToolkitContext = new THREEx.ArToolkitContext({
+    cameraParametersUrl: 'data/camera_para.dat',
+    detectionMode: 'mono'
+});
+
+arToolkitContext.init(() => {
+    camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+});
+
+const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
+    type: 'pattern',
+    patternUrl: 'data/pattern-seed.patt',
+    changeMatrixMode: 'cameraTransformMatrix'
+});
+
 
 const gen = 4;
 let t = new Turtle();
@@ -303,40 +339,102 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
 directionalLight.position.set(1, 1, 1);
 scene.add(directionalLight);
 
-// animation
-function animation(time) {
-
-    let t = time / 5000;
-
-    if (count < 100) {
-        count++;
-        for (let i = 0; i < branchID; i++) {
-            if (meshes[i].geometry) {
-                meshes[i].geometry.dispose();
-            }
-            if (meshes[i].material) {
-                if (meshes[i].material instanceof Array) {
-                    meshes[i].material.forEach(material => material.dispose());
-                } else {
-                    meshes[i].material.dispose();
-                }
-            }
-            scene.remove(meshes[i]);
-
-            //vertices = meshes[i].geometry.attributes.position.array;
-            //meshes[i].geometry.attributes.position.needsUpdate = true;
-            //meshes[i].geometry.computeBoundingBox();
-            //meshes[i].geometry.computeBoundingSphere();
-        }
-        meshes.length = 0;
-
-        randID = 0;
-        branchID = 0;
-        t = new Turtle();
-        t.draw_windingly(3, GrowthRatio(gen + 1, count), GrowthRatio2(gen + 1, count));
-        branch(gen, t);
-
-    }
-	controls.update(); 
-	renderer.render(scene, camera);
+var isDragging = false;
+var previousTouchPosition = {
+    x: 0,
+    y: 0
+};
+var initialDistance = null;
+function getDistance(touches) {
+    var dx = touches[0].pageX - touches[1].pageX;
+    var dy = touches[0].pageY - touches[1].pageY;
+    return Math.sqrt(dx * dx + dy * dy);
 }
+
+document.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 1) {
+        e.preventDefault();
+        isDragging = true;
+        previousTouchPosition = {
+            x: e.touches[0].pageX,
+            y: e.touches[0].pageY
+        };
+    }
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        initialDistance = getDistance(e.touches);
+    }
+}, { passive: false });
+
+document.addEventListener('touchmove', function (e) {
+    if (isDragging) {
+        e.preventDefault();
+        var currentTouchPosition = {
+            x: e.touches[0].pageX,
+            y: e.touches[0].pageY
+        };
+
+        var deltaMove = {
+            x: currentTouchPosition.x - previousTouchPosition.x,
+            y: currentTouchPosition.y - previousTouchPosition.y
+        };
+
+        var rotationSpeed = 0.005;
+        group.rotation.y += deltaMove.x * rotationSpeed;
+        group.rotation.x += deltaMove.y * rotationSpeed;
+
+        previousTouchPosition = {
+            x: currentTouchPosition.x,
+            y: currentTouchPosition.y
+        };
+    }
+    if (e.touches.length === 2) {
+        var currentDistance = getDistance(e.touches);
+        if (initialDistance) {
+            e.preventDefault();
+            var scale = currentDistance / initialDistance;
+            group.scale.set(scale, scale, scale);
+        }
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', function (e) {
+    isDragging = false;
+    initialDistance = null;
+});
+
+// animation
+requestAnimationFrame(function animate() {
+    requestAnimationFrame(animate);
+
+    if (arToolkitSource.ready) {
+        arToolkitContext.update(arToolkitSource.domElement);
+        scene.visible = camera.visible;
+
+        if (count < 300 && camera.visible) {
+            count++;
+            for (let i = 0; i < branchID; i++) {
+                if (meshes[i].geometry) {
+                    meshes[i].geometry.dispose();
+                }
+                if (meshes[i].material) {
+                    if (meshes[i].material instanceof Array) {
+                        meshes[i].material.forEach(material => material.dispose());
+                    } else {
+                        meshes[i].material.dispose();
+                    }
+                }
+                group.remove(meshes[i]);
+            }
+            meshes.length = 0;
+
+            randID = 0;
+            branchID = 0;
+            t = new Turtle();
+            t.draw_windingly(3, GrowthRatio(gen + 1, count), GrowthRatio2(gen + 1, count));
+            branch(gen, t);
+        }
+    }
+    
+	renderer.render(scene, camera);
+});
