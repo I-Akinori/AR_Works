@@ -11,9 +11,20 @@ mesh_indices.push(2, 3, 0);
 const meshes = [];
 const now = new Date();
 const normalizedDay = normalizeDate(now);
+const rand_dic = [];
 
 let branchID = 0;
+let randID = 0;
+InitRand();
 
+function InitRand() { 
+    for (let i = 0; i < 1024 * 2; i++) { 
+        rand_dic.push(Math.random());
+    }
+}
+function MyRandom() { 
+    return rand_dic[randID++];
+}
 function deg2rad(deg) { 
     return deg / 180 * Math.PI;
 }
@@ -27,17 +38,17 @@ function normalizeDate(date) {
 }
 function boxMuller01(ave) {
     let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
+    while (u === 0) u = MyRandom();
+    while (v === 0) v = MyRandom();
+    
     const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * 0.12 + ave + 1;
-    console.log(num - Math.floor(num));
     return num - Math.floor(num);
 }
 function randomColor(orig) { 
     const color = new THREE.Color();
     color.setHSL(boxMuller01(0.7 - normalizedDay), 1.0, 0.7);
     let colVec = new THREE.Vector3(color.r, color.g, color.b);
-    return colVec.lerp(orig, Math.random());
+    return colVec.lerp(orig, MyRandom());
 }
 function randomColor() {
     const color = new THREE.Color();
@@ -53,19 +64,19 @@ function branch(gen, T)
 
         const T1 = T.duplicate();
         const T2 = T.duplicate();
-        T1.roll(deg2rad(110 + Math.random() * 20));
-        T1.turn(deg2rad(20 + Math.random() * 20));
-        T2.roll(deg2rad(-110 - Math.random() * 20));
-        T2.turn(deg2rad(20 + Math.random() * 20));
-        T.roll(deg2rad(-10 + Math.random() * 20));
-        T.turn(deg2rad(20 + Math.random() * 20));
+        T1.roll(deg2rad(110 + MyRandom() * 20));
+        T1.turn(deg2rad(20 + MyRandom() * 20));
+        T2.roll(deg2rad(-110 - MyRandom() * 20));
+        T2.turn(deg2rad(20 + MyRandom() * 20));
+        T.roll(deg2rad(-10 + MyRandom() * 20));
+        T.turn(deg2rad(20 + MyRandom() * 20));
 
-        T.changeLen(0.8 + Math.random() * 0.4);
-        T.changeWid(0.8 + Math.random() * 0.4);
-        T1.changeLen(0.8 + Math.random() * 0.4);
-        T1.changeWid(0.8 + Math.random() * 0.4);
-        T2.changeLen(0.8 + Math.random() * 0.4);
-        T2.changeWid(0.8 + Math.random() * 0.4);
+        T.changeLen(0.8 + MyRandom() * 0.4);
+        T.changeWid(0.8 + MyRandom() * 0.4);
+        T1.changeLen(0.8 + MyRandom() * 0.4);
+        T1.changeWid(0.8 + MyRandom() * 0.4);
+        T2.changeLen(0.8 + MyRandom() * 0.4);
+        T2.changeWid(0.8 + MyRandom() * 0.4);
 
         const seg = 3;
         T.draw_windingly(seg);
@@ -110,8 +121,8 @@ class Turtle {
         let end_col = randomColor(this.col);
 
         for (let seg = 0; seg < segments - 1; seg++) {
-            const slide_dir = Math.random() * Math.PI;
-            const slide_dis = Math.random() * this.width;
+            const slide_dir = MyRandom() * Math.PI;
+            const slide_dis = MyRandom() * this.width;
             let tmp_vec = nor.clone();
             tmp_vec.multiplyScalar(Math.cos(slide_dir));
             tmp_vec.add(this.up.clone().multiplyScalar(Math.sin(slide_dir)));
@@ -220,7 +231,7 @@ renderer.setAnimationLoop(animation);
 document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-const t = new Turtle();
+let t = new Turtle();
 t.draw_windingly(3);
 branch(4, t);
 
@@ -237,11 +248,32 @@ function animation(time) {
     let t = time / 5000;
 
     for (let i = 0; i < branchID; i++) {
-        vertices = meshes[i].geometry.attributes.position.array;
-        meshes[i].geometry.attributes.position.needsUpdate = true;
-        meshes[i].geometry.computeBoundingBox();
-        meshes[i].geometry.computeBoundingSphere();
+        console.log(i);
+        if (meshes[i].geometry) {
+            meshes[i].geometry.dispose();
+        }
+        if (meshes[i].material) {
+            if (meshes[i].material instanceof Array) {
+                meshes[i].material.forEach(material => material.dispose());
+            } else {
+                meshes[i].material.dispose();
+            }
+        }
+        scene.remove(meshes[i]);
+
+        //vertices = meshes[i].geometry.attributes.position.array;
+        //meshes[i].geometry.attributes.position.needsUpdate = true;
+        //meshes[i].geometry.computeBoundingBox();
+        //meshes[i].geometry.computeBoundingSphere();
     }
+    meshes.length = 0;
+
+    randID = 0;
+    branchID = 0;
+    t = new Turtle();
+    t.draw_windingly(3);
+    branch(4, t);
+
 	controls.update(); 
 	renderer.render(scene, camera);
 }
