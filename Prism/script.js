@@ -17,6 +17,7 @@ let branchID = 0;
 let randID = 0;
 let count = 0;
 const Balls = [];
+const Prisms = [];
 InitRand();
 var group = new THREE.Group();
 
@@ -59,17 +60,37 @@ function randomColor() {
     color.setHSL(Math.random(), 1.0, 0.7);
     return color;
 }
-function ball() {
-    let mesh_geometry = new THREE.SphereGeometry(0.4);
-    if (Math.random() < 0.3)
-        mesh_geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+function rainbow(val) { 
+    const color = new THREE.Color();
+    if (val < 0.25) {
+        color.r = 0;
+        color.g = val * 4;
+        color.b = 1;
+    } else if (val < 0.50) {
+        color.r = 0;
+        color.g = 1;
+        color.b = (val - 0.25) * 4;
+    } else if (val < 0.75) {
+        color.r = (val - 0.5) * 4;
+        color.g = 1;
+        color.b = 0;
+    } else {
+        color.r = 1;
+        color.g = 1 - (val - 0.75) * 4;
+        color.b = 0;
+    }
+    return color;
+}
+function prism(x, z) {
+    const mesh_geometry = new THREE.BoxGeometry(0.23, 0.23, 0.23);
 
-    const colHSL = randomColor();
+    const colHSL = new THREE.Color(0xffffff);
     const mesh_material = new THREE.MeshStandardMaterial({
-        color: colHSL, metalness: 0.4, roughness: 0.1 });
+        color: colHSL, metalness: 0.0, roughness: 0.0 });
     const mesh = new THREE.Mesh(mesh_geometry, mesh_material);
-    meshes.push(mesh);
-
+    mesh.position.x = x;
+    mesh.position.z = z;
+    
     group.add(mesh);
     return mesh;
 }
@@ -97,6 +118,27 @@ class Ball{
         }
     }
 }
+class Prism { 
+    constructor(x, z, h) {
+        this.height = h;
+        this.mesh = prism(x, z);
+        this.updateHeight();
+    }
+    updateHeight() {
+        this.mesh.scale.y = this.height;
+        this.mesh.position.y = (this.height / 2) * 0.25;
+        console.log(this.mesh.position.y);
+        this.mesh.material.color = rainbow(this.height / 6.2);
+    }
+    dispose() {
+        if (this.mesh.geometry) {
+            this.mesh.geometry.dispose();
+        }
+        if (this.mesh.material) {
+            this.mesh.material.dispose();
+        }
+    }
+}
 function pannel() { 
     let verts = [];
     let colors = [];
@@ -107,68 +149,13 @@ function pannel() {
     verts.push(0.625, 0, 0.75);
     verts.push(0.625, 0, -0.75);
 
-    verts.push(-0.5, 0, -0.625);
-    verts.push(-0.5, 0, 0.625);
-    verts.push(0.5, 0, 0.625);
-    verts.push(0.5, 0, -0.625);
-
-    verts.push(-0.625, -0.4, -0.75);
-    verts.push(-0.625, -0.4, 0.75);
-    verts.push(0.625, -0.4, 0.75);
-    verts.push(0.625, -0.4, -0.75);
-
-    verts.push(-0.5, -0.4, -0.625);
-    verts.push(-0.5, -0.4, 0.625);
-    verts.push(0.5, -0.4, 0.625);
-    verts.push(0.5, -0.4, -0.625);
-
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
     colors.push(1, 1, 1);
     colors.push(1, 1, 1);
     colors.push(1, 1, 1);
     colors.push(1, 1, 1);
 
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(0, 0, 0);
-    colors.push(0, 0, 0);
-    colors.push(0, 0, 0);
-    colors.push(0, 0, 0);
-
-    faces.push(0, 1, 4);
-    faces.push(1, 5, 4);
-    faces.push(1, 2, 5);
-    faces.push(2, 6, 5);
-    faces.push(2, 3, 6);
-    faces.push(3, 7, 6);
-    faces.push(3, 0, 7);
-    faces.push(0, 4, 7);
-
-    faces.push(8, 9, 0);
-    faces.push(9, 1, 0);
-    faces.push(9, 10, 1);
-    faces.push(10, 2, 1);
-    faces.push(10, 11, 2);
-    faces.push(11, 3, 2);
-    faces.push(11, 8, 3);
-    faces.push(8, 0, 3);
-
-    faces.push(4, 5, 12);
-    faces.push(5, 13, 12);
-    faces.push(5, 6, 13);
-    faces.push(6, 14, 13);
-    faces.push(6, 7, 14);
-    faces.push(7, 15, 14);
-    faces.push(7, 4, 15);
-    faces.push(4, 12, 15);
-
-    faces.push(12, 13, 14);
-    faces.push(12, 14, 15);
+    faces.push(0, 1, 2);
+    faces.push(0, 2, 3);
 
     const mesh_geometry = new THREE.BufferGeometry();
 
@@ -209,7 +196,15 @@ scene.visible = false;
 const camera = new THREE.OrthographicCamera(-1, +1, height / width, -height / width, 0.01, 1000);
 scene.add(camera);
 
-pannel();
+//pannel();
+for (i = 0; i < 5; i++) {
+    for (j = 0; j < 6; j++) {
+        const x = 1.25 / 5 * (- 2 + i);
+        const y = 1.5 / 6 * (- 2.5 + j);
+        const p = new Prism(x, y, (i + j + 1) * 0.3);
+        Prisms.push(p);
+    }
+}
 scene.add(group);
 
 const arToolkitSource = new THREEx.ArToolkitSource({
@@ -245,7 +240,7 @@ arToolkitContext.init(() => {
 
 const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
     type: 'pattern',
-    patternUrl: 'data/ballnbox.patt',
+    patternUrl: 'data/pattern-seed.patt',
     changeMatrixMode: 'cameraTransformMatrix'
 });
 
@@ -269,17 +264,17 @@ document.addEventListener('touchstart', function (e) {
 requestAnimationFrame(function animate() {
     requestAnimationFrame(animate);
 
-    const sec = performance.now() % 500 / 1000;
+    const sec = performance.now() / 1000;
 
     if (arToolkitSource.ready) {
         arToolkitContext.update(arToolkitSource.domElement);
         scene.visible = camera.visible;
 
         if (camera.visible) {
-            for (let i = Balls.length - 1; i >= 0; i--) {
-                if (Balls[i].updatePosition()) {
-                    Balls[i].dispose();
-                    Balls.splice(i, 1);
+            for (i = 0; i < 5; i++) {
+                for (j = 0; j < 6; j++) {
+                    Prisms[i * 6 + j].height = (1.1 + Math.cos(sec + i * 0.3) * 0.5 + Math.sin(sec + j * 0.7) * 0.5) * 3;
+                    Prisms[i * 6 + j].updateHeight();
                 }
             }
         }
