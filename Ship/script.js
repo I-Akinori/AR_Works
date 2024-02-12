@@ -2,6 +2,8 @@ let count = 0;
 const Prisms = [];
 let totalheight = 0;
 var group = new THREE.Group();
+let i = 0;
+let j = 0;
 
 function rainbow(val) { 
     const color = new THREE.Color();
@@ -25,7 +27,7 @@ function rainbow(val) {
     return color;
 }
 function prism(x, z) {
-    const mesh_geometry = new THREE.BoxGeometry(0.11, 0.11, 0.11);
+    const mesh_geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
 
     const colHSL = new THREE.Color(0xffffff);
     const mesh_material = new THREE.MeshStandardMaterial({
@@ -40,23 +42,19 @@ function prism(x, z) {
 
 class Prism { 
     constructor(x, z, h) {
-        this.life = h;
-        this.life_pre = h;
-        this.color = rainbow((x + z + 1.5) / 3);
+        this.height = h;
+        this.height_pre = h;
+        this.height_pre2 = h;
         this.mesh = prism(x, z);
-        this.updateLife();
+        this.updateHeight();
+        totalheight += h;
     }
-    updateLife() {
-        this.mesh.material.transparent = true;
-        if (this.life) {
-            this.mesh.material.color = this.color;
-            this.mesh.material.opacity = 0.8;
-        }
-        else {
-            this.mesh.material.color = new THREE.Color(0x000000)
-            this.mesh.material.opacity = 0.8;
-        }
-        this.life_pre = this.life;
+    updateHeight() {
+        this.mesh.scale.y = this.height;
+        this.mesh.position.y = (this.height / 2) * 0.25;
+        this.mesh.visible = false;
+        this.height_pre2 = this.height_pre;
+        this.height_pre = this.height;
     }
     dispose() {
         if (this.mesh.geometry) {
@@ -67,24 +65,11 @@ class Prism {
         }
     }
 }
-function pannel() { 
+function init_wave() { 
     let verts = [];
     let colors = [];
     let faces = [];
-
-    verts.push(-0.625, 0, -0.75);
-    verts.push(-0.625, 0, 0.75);
-    verts.push(0.625, 0, 0.75);
-    verts.push(0.625, 0, -0.75);
-
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-    colors.push(1, 1, 1);
-
-    faces.push(0, 1, 2);
-    faces.push(0, 2, 3);
-
+    
     const mesh_geometry = new THREE.BufferGeometry();
 
     const verticesArray = new Float32Array(verts);
@@ -105,7 +90,74 @@ function pannel() {
 
     group.add(mesh);
 }
+function update_wave() {
+    let verts = [];
+    let colors = [];
+    let faces = [];
 
+    // 0 - 41
+    for (i = 0; i < 6; i++) {
+        for (j = 0; j < 7; j++) {
+            verts.push(-0.625 + 1.25 * i / 5, Prisms[i * 7 + j].height / 4, -0.75 + 1.5 * j / 6);
+            colors.push(Prisms[i * 7 + j].height / 4, Prisms[i * 7 + j].height / 4, 1);
+        }
+    }
+    // 42 - 83
+    for (i = 0; i < 6; i++) {
+        for (j = 0; j < 7; j++) {
+            verts.push(-0.625 + 1.25 * i / 5, 0, -0.75 + 1.5 * j / 6);
+            colors.push(0, 0, 1);
+        }
+    }
+    for (i = 0; i < 5; i++) {
+        for (j = 0; j < 6; j++) {
+            const index = i * 7 + j;
+            faces.push(index, index + 7 + 1, index + 7);
+            faces.push(index, index + 1, index + 7 + 1);
+        }
+    }
+    for (i = 0; i < 5; i++) {
+        const index = i * 7;
+        faces.push(index, index + 42 + 7, index + 42);
+        faces.push(index, index + 7, index + 42 + 7);
+    }
+    for (i = 0; i < 5; i++) {
+        const index = i * 7 + 6;
+        faces.push(index, index + 42, index + 42 + 7);
+        faces.push(index, index + 42 + 7, index + 7);
+    }
+    for (j = 0; j < 6; j++) {
+        const index = 0 * 7 + j;
+        faces.push(index, index + 42, index + 42 + 1);
+        faces.push(index, index + 42 + 1, index + 1);
+    }
+    for (j = 0; j < 6; j++) {
+        const index = 5 * 7 + j;
+        faces.push(index, index + 42 + 1, index + 42);
+        faces.push(index, index + 1, index + 42 + 1);
+    }
+
+    const mesh_geometry = new THREE.BufferGeometry();
+
+    const verticesArray = new Float32Array(verts);
+    mesh_geometry.setAttribute('position', new THREE.BufferAttribute(verticesArray, 3));
+
+    const colorsArray = new Float32Array(colors);
+    mesh_geometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+    const indicesArray = new Uint16Array(faces);
+    mesh_geometry.setIndex(new THREE.BufferAttribute(indicesArray, 1));
+
+    mesh_geometry.computeFaceNormals();
+    mesh_geometry.computeVertexNormals();
+    mesh_geometry.computeBoundingBox();
+    mesh_geometry.computeBoundingSphere();
+    const mesh_material = new THREE.MeshStandardMaterial({ vertexColors: THREE.VertexColors });
+    mesh_material.transparent = true;
+    mesh_material.opacity = 0.5;
+    group.children[6 * 7] = new THREE.Mesh(mesh_geometry, mesh_material);
+
+};
 
 const width = window.innerWidth, height = window.innerHeight;
 const renderer = new THREE.WebGLRenderer({
@@ -121,20 +173,36 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.visible = false;
-//const camera = new THREE.OrthographicCamera(-1, +1, height / width, -height / width, 0.01, 1000);
 const camera = new THREE.PerspectiveCamera();
 scene.add(camera);
 
-//pannel();
-for (i = 0; i < 10; i++) {
-    for (j = 0; j < 12; j++) {
-        const x = -1.25 + 1.25 * ((i + 0.5) / 10 + 0.5);
-        const y = -1.5 + 1.5 * ((j + 0.5) / 12 + 0.5);
-        const t = Math.random() < 0.25;
-        const p = new Prism(x, y, t);
+for (i = 0; i < 6; i++) {
+    for (j = 0; j < 7; j++) {
+        const x = -0.625 + 1.25 * i / 5;
+        const y = -0.75 + 1.5 * j / 6;
+        const p = new Prism(x, y, (i + j + 3) * 0.4);
         Prisms.push(p);
     }
 }
+
+init_wave();
+
+const loader = new THREE.OBJLoader();
+let ship_obj;
+
+loader.load(
+    'data/ship.obj',
+    function (obj) {
+        ship_obj = obj;
+        group.add(obj);
+    },
+    function (xhr) {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    },
+    function (error) {
+        console.log('An error happened');
+    }
+);
 scene.add(group);
 
 const arToolkitSource = new THREEx.ArToolkitSource({
@@ -170,7 +238,7 @@ arToolkitContext.init(() => {
 
 const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
     type: 'pattern',
-    patternUrl: 'data/pattern-life.patt',
+    patternUrl: 'data/pattern-ship.patt',
     changeMatrixMode: 'cameraTransformMatrix'
 });
 
@@ -197,8 +265,6 @@ let mouse = new THREE.Vector2(0, 0);
 renderer.domElement.addEventListener('touchstart', (event) => {
     event.preventDefault();
     touched = true;
-
-    event.preventDefault();
     const touch = event.touches[0];
     const element = event.currentTarget;
     const x = touch.clientX - element.offsetLeft;
@@ -207,10 +273,8 @@ renderer.domElement.addEventListener('touchstart', (event) => {
     const h = element.offsetHeight;
     mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
 });
-renderer.domElement.addEventListener('touchmove', (event) => {
-    event.preventDefault();
-    touched = true;
 
+renderer.domElement.addEventListener('touchmove', (event) => {
     event.preventDefault();
     const touch = event.touches[0];
     const element = event.currentTarget;
@@ -224,28 +288,26 @@ renderer.domElement.addEventListener('touchend', (event) => {
     event.preventDefault();
     touched = false;
 });
-renderer.domElement.addEventListener('touchcansel', (event) => {
+renderer.domElement.addEventListener('touchcancel', (event) => {
     event.preventDefault();
     touched = false;
 });
-
-function control() { 
+function control() {
     raycaster.setFromCamera(mouse, camera);
 
-    for (i = 0; i < 10; i++) {
-        for (j = 0; j < 12; j++) {
-            const mesh = group.children[i * 12 + j];
+    for (i = 0; i < 6; i++) {
+        for (j = 0; j < 7; j++) {
+            const mesh = group.children[i * 7 + j];
             const intersects = raycaster.intersectObject(mesh);
             if (intersects.length !== 0) {
-                Prisms[i * 12 + j].life_pre = true;
-                Prisms[i * 12 + j].life = true;
+                console.log(i * 7 + j);
+                Prisms[i * 7 + j].height_pre += (4 - Prisms[i * 7 + j].height_pre) / 20;
+                Prisms[i * 7 + j].height_pre2 += (4 - Prisms[i * 7 + j].height_pre) / 20;
             }
         }
     }
-};
-
+}
 let sec_pre = 0;
-let lapse = 0;
 // animation
 requestAnimationFrame(function animate() {
     requestAnimationFrame(animate);
@@ -253,53 +315,44 @@ requestAnimationFrame(function animate() {
     let sec = performance.now() / 1000 - sec_pre;
     sec_pre += sec;
     if (sec > 0.05) sec = 0.05;
-    lapse += sec;
 
     if (arToolkitSource.ready) {
         arToolkitContext.update(arToolkitSource.domElement);
         scene.visible = camera.visible;
 
-        if (camera.visible && lapse > 0.2) {
-            lapse = 0;
-
+        if (camera.visible) {
             if (touched) control();
+            let sum = 0;
+            for (i = 0; i < 6; i++) {
+                for (j = 0; j < 7; j++) {
+                    let h = Prisms[i * 7 + j].height_pre;
+                    const k = 0.999;
+                    const s = 0.5 * sec * sec;
+                    h += (Prisms[i * 7 + j].height_pre - Prisms[i * 7 + j].height_pre2) * k;
+                    if (i < 5)
+                        h -= (Prisms[i * 7 + j].height_pre - Prisms[(i + 1) % 6 * 7 + j].height_pre) * s;
+                    if (i > 0)
+                        h -= (Prisms[i * 7 + j].height_pre - Prisms[(i + 5) % 6 * 7 + j].height_pre) * s;
+                    if (j < 6)
+                        h -= (Prisms[i * 7 + j].height_pre - Prisms[i % 6 * 7 + (j + 1) % 7].height_pre) * s;
+                    if (j > 0)
+                        h -= (Prisms[i * 7 + j].height_pre - Prisms[i % 6 * 7 + (j + 6) % 7].height_pre) * s;
 
-            for (i = 0; i < 10; i++) {
-                for (j = 0; j < 12; j++) {
-                    let L = 0;
-                    for (p = 0; p < 3; p++) {
-                        for (q = 0; q < 3; q++) {
-                            if (p == 1 && q == 1) { 
-                                continue;
-                            }
-                            if (i + 9 + p == 9 || i + 9 + p == 20
-                                || j + 11 + q == 11 || j + 11 + q == 24)
-                                continue;
-                            if (Prisms[(i + 9 + p) % 10 * 12 + (j + 11 + q) % 12].life_pre) {
-                                L++;
-                            }
-                        }
-                    }
-                    if (Prisms[i * 12 + j].life_pre) {
-                        if (L != 2 && L != 3) {
-                            Prisms[i * 12 + j].life = false;
-                        }
-                    } else {
-                        if (L == 3) {
-                            Prisms[i * 12 + j].life = true;
-                        }
-                    }
+                    Prisms[i * 7 + j].height = h;// (1.1 + Math.cos(sec + i * 0.3) * 0.5 + Math.sin(sec + j * 0.7) * 0.5) * 3;
+                    sum += h;
                 }
             }
-
-            if (touched) control();
-
-            for (i = 0; i < 10; i++) {
-                for (j = 0; j < 12; j++) {
-                    Prisms[i * 12 + j].updateLife();
+            for (i = 0; i < 6; i++) {
+                for (j = 0; j < 7; j++) {
+                    Prisms[i * 7 + j].height -= (sum - totalheight) / 42 * 0.001;
+                    Prisms[i * 7 + j].updateHeight();
                 }
             }
-
+            update_wave();
+            ship_obj.position.y = Prisms[2 * 7 + 3].height / 8 + Prisms[3 * 7 + 3].height / 8;
+            ship_obj.rotation.x = (Prisms[2 * 7 + 2].height / 8 + Prisms[2 * 7 + 2].height / 8
+                - Prisms[2 * 7 + 4].height / 8 - Prisms[2 * 7 + 4].height / 8);
+            ship_obj.rotation.z = - (Prisms[2 * 7 + 3].height / 4 - Prisms[3 * 7 + 3].height / 4);
         }
     }
     
