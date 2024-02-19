@@ -174,7 +174,7 @@ audioLoader.load('data/C.mp3', function(buffer){
     C.setVolume(0.5);
 });
 
-audioLoader.load('data/C#.mp3', function (buffer) {
+audioLoader.load('data/Cs.mp3', function (buffer) {
     Cs.setBuffer(buffer);
     Cs.setLoop(false);
     Cs.setVolume(0.5);
@@ -186,7 +186,7 @@ audioLoader.load('data/D.mp3', function (buffer) {
     D.setVolume(0.5);
 });
 
-audioLoader.load('data/D#.mp3', function (buffer) {
+audioLoader.load('data/Ds.mp3', function (buffer) {
     Ds.setBuffer(buffer);
     Ds.setLoop(false);
     Ds.setVolume(0.5);
@@ -204,7 +204,7 @@ audioLoader.load('data/F.mp3', function (buffer) {
     F.setVolume(0.5);
 });
 
-audioLoader.load('data/F#.mp3', function (buffer) {
+audioLoader.load('data/Fs.mp3', function (buffer) {
     Fs.setBuffer(buffer);
     Fs.setLoop(false);
     Fs.setVolume(0.5);
@@ -216,7 +216,7 @@ audioLoader.load('data/G.mp3', function (buffer) {
     G.setVolume(0.5);
 });
 
-audioLoader.load('data/G#.mp3', function (buffer) {
+audioLoader.load('data/Gs.mp3', function (buffer) {
     Gs.setBuffer(buffer);
     Gs.setLoop(false);
     Gs.setVolume(0.5);
@@ -228,7 +228,7 @@ audioLoader.load('data/A.mp3', function (buffer) {
     A.setVolume(0.5);
 });
 
-audioLoader.load('data/A#.mp3', function (buffer) {
+audioLoader.load('data/As.mp3', function (buffer) {
     As.setBuffer(buffer);
     As.setLoop(false);
     As.setVolume(0.5);
