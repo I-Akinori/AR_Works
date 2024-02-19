@@ -96,7 +96,7 @@ arToolkitContext.init(() => {
 
 const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
     type: 'pattern',
-    patternUrl: 'data/pattern-heart.patt',
+    patternUrl: 'data/pattern-clock.patt',
     changeMatrixMode: 'cameraTransformMatrix'
 });
 
@@ -114,7 +114,7 @@ for (i = 0; i < orbits; i++) {
     lines.push(line);
 
     points = [];
-    let scale = Math.pow(1.4, i) * 0.02;
+    let scale = Math.pow(1.4, i) * 0.1;
     for (j = 0; j < segments; j++) {
         let s = j / segments * Math.PI * 2;
         let x = Math.cos(s * 1) * scale;
@@ -147,7 +147,7 @@ const start_material = new THREE.LineBasicMaterial({
 });
 var s_vertices = [];
 for (i = 0; i < orbits; i++) {
-    let scale = Math.pow(1.4, i) * 0.02;
+    let scale = Math.pow(1.4, i) * 0.1;
     let X = 0 * scale;
     let Y = 1 * scale;// Math.sin(s * 1 * dates[i]) * scale;
     let Z = - 1 * scale;
@@ -261,7 +261,7 @@ requestAnimationFrame(function animate() {
     dates.push(normalizeParSecond(now));
 
     for (i = 0; i < orbits; i++) {
-        let scale = Math.pow(1.4, i) * 0.02;
+        let scale = Math.pow(1.4, i) * 0.1;
         let s = Math.PI * 2;
         let X = Math.sin(s * 1 * dates[i]) * scale;
         let Y = 1 * scale;// Math.sin(s * 1 * dates[i]) * scale;

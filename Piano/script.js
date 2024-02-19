@@ -1,5 +1,5 @@
 let count = 0;
-const Prisms = [];
+const Rings = [];
 const Keys = [];
 const KeyPressed = [];
 const listener = new THREE.AudioListener();
@@ -8,25 +8,9 @@ let totalheight = 0;
 let touched = false;
 var group = new THREE.Group();
 
-function rainbow(val) { 
+function randomColor() {
     const color = new THREE.Color();
-    if (val < 0.25) {
-        color.r = 0;
-        color.g = val * 4;
-        color.b = 1;
-    } else if (val < 0.50) {
-        color.r = 0;
-        color.g = 1;
-        color.b = (0.5 - val) * 4;
-    } else if (val < 0.75) {
-        color.r = (val - 0.5) * 4;
-        color.g = 1;
-        color.b = 0;
-    } else {
-        color.r = 1;
-        color.g = 1 - (val - 0.75) * 4;
-        color.b = 0;
-    }
+    color.setHSL(Math.random(), 1.0, 0.7);
     return color;
 }
 function whiteKey(z) {
@@ -59,35 +43,35 @@ function blackKey(z) {
     return mesh;
 }
 
-function prism(x, z) {
-    const mesh_geometry = new THREE.BoxGeometry(1.25, 0.23, 0.23);
-
-    const colHSL = new THREE.Color(0xffffff);
-    const mesh_material = new THREE.MeshStandardMaterial({
-        color: colHSL, metalness: 0.0, roughness: 0.0 });
+function ring(x, y, z) {
+    const mesh_geometry = new THREE.RingGeometry(0.4, 0.5, 32);
+    const mesh_material = new THREE.MeshPhongMaterial({ color: randomColor(), transparent: true, opacity: 0.8 });
     const mesh = new THREE.Mesh(mesh_geometry, mesh_material);
-    mesh.position.y = (0.25 / 2) * 0.25;
+    mesh.position.x = x;
+    mesh.position.y = y;
     mesh.position.z = z;
+    mesh.rotation.x = - Math.PI / 2;
     
     group.add(mesh);
     return mesh;
 }
 
-class Prism { 
-    constructor(x, z, h) {
-        this.height = h;
-        this.height_pre = h;
-        this.height_pre2 = h;
-        this.mesh = prism(x, z);
-        this.updateHeight();
-        totalheight += h;
+class Ring { 
+    constructor(x, y, z) {
+        this.time = 60;
+        this.mesh = ring(x, y, z);
+        this.updateScale();
     }
-    updateHeight() {
-        this.mesh.scale.y = this.height;
-        this.mesh.position.y = (this.height / 2) * 0.25;
-        this.mesh.material.color = rainbow(this.height / 6.2);
-        this.height_pre2 = this.height_pre;
-        this.height_pre = this.height;
+    updateScale() {
+        this.mesh.scale.x = this.mesh.scale.x * 1.07;
+        this.mesh.scale.y = this.mesh.scale.y * 1.07;
+        this.mesh.scale.z = this.mesh.scale.z * 1.07;
+        this.mesh.position.y = this.mesh.position.y - 0.01;
+        this.mesh.material.opacity = this.mesh.material.opacity * 0.93;
+        this.time = this.time - 1;
+
+        console.log(this.time);
+        return this.time < 0;
     }
     dispose() {
         if (this.mesh.geometry) {
@@ -98,6 +82,7 @@ class Prism {
         }
     }
 }
+
 function pannel() { 
     let verts = [];
     let colors = [];
@@ -298,7 +283,7 @@ arToolkitContext.init(() => {
 
 const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
     type: 'pattern',
-    patternUrl: 'data/pattern-heart.patt',
+    patternUrl: 'data/pattern-piano.patt',
     changeMatrixMode: 'cameraTransformMatrix'
 });
 
@@ -315,72 +300,144 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-directionalLight.position.set(1, 1, 1);
+directionalLight.position.set(1, 1, 1).normalize();
 scene.add(directionalLight);
+
+const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+directionalLight2.position.set(-1, 1, -0.3).normalize();
+scene.add(directionalLight2);
+
 
 const raycaster = new THREE.Raycaster();
 renderer.domElement.addEventListener('touchstart', (event) => {
     tourched = true;
     event.preventDefault();
-    const touch = event.touches[0];
-    const element = event.currentTarget;
-    const x = touch.clientX - element.offsetLeft;
-    const y = touch.clientY - element.offsetTop;
-    const w = element.offsetWidth;
-    const h = element.offsetHeight;
-    const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
-    console.log(mouse);
-    raycaster.setFromCamera(mouse, camera);
+    const num = event.touches.length;
+    const indexes = [];
+    for (i = 0; i < num; i++) {
+        const touch = event.touches[i];
+        const element = event.currentTarget;
+        const x = touch.clientX - element.offsetLeft;
+        const y = touch.clientY - element.offsetTop;
+        const w = element.offsetWidth;
+        const h = element.offsetHeight;
+        const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
+        raycaster.setFromCamera(mouse, camera);
 
-    const intersects = raycaster.intersectObjects(Keys);
-    if (intersects.length !== 0) {
-        index = Keys.indexOf(intersects[0].object);
-        KeyPressed[index] = true;
-        sounds[index].play();
+        const intersects = raycaster.intersectObjects(Keys);
+        if (intersects.length !== 0) {
+            index = Keys.indexOf(intersects[0].object);
+            if (!indexes.includes(index)) {
+                indexes.push(index);
+                if (!KeyPressed[index]) {
+                    if (sounds[index].isPlaying) {
+                        sounds[index].stop();
+                    }
+                    Rings.push(new Ring(Keys[index].position.x, Keys[index].position.y + 0.1, Keys[index].position.z));
+                }
+                KeyPressed[index] = true;
+                sounds[index].play();
+            }
+        }
     }
 });
 renderer.domElement.addEventListener('touchmove', (event) => {
     event.preventDefault();
-    const touch = event.touches[0];
-    const element = event.currentTarget;
-    const x = touch.clientX - element.offsetLeft;
-    const y = touch.clientY - element.offsetTop;
-    const w = element.offsetWidth;
-    const h = element.offsetHeight;
-    const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
-    console.log(mouse);
-    raycaster.setFromCamera(mouse, camera);
+    const num = event.touches.length;
+    const indexes = [];
+    for (i = 0; i < num; i++) {
+        const touch = event.touches[i];
+        const element = event.currentTarget;
+        const x = touch.clientX - element.offsetLeft;
+        const y = touch.clientY - element.offsetTop;
+        const w = element.offsetWidth;
+        const h = element.offsetHeight;
+        const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
+        raycaster.setFromCamera(mouse, camera);
 
-    let index = -1;
-    const intersects = raycaster.intersectObjects(Keys);
-    if (intersects.length !== 0) {
-        index = Keys.indexOf(intersects[0].object);
-        KeyPressed[index] = true;
-        sounds[index].play();
+        const intersects = raycaster.intersectObjects(Keys);
+        if (intersects.length !== 0) {
+            index = Keys.indexOf(intersects[0].object);
+            if (!indexes.includes(index)) {
+                indexes.push(index);
+                if (!KeyPressed[index]) {
+                    if (sounds[index].isPlaying) {
+                        sounds[index].stop();
+                    }
+                    Rings.push(new Ring(Keys[index].position.x, Keys[index].position.y + 0.1, Keys[index].position.z));
+                }
+                KeyPressed[index] = true;
+                sounds[index].play();
+            }
+        }
     }
 
     for (i = 0; i < 12; i++) {
-        if (index != i && KeyPressed[i]) {
+        if (!indexes.includes(i) && KeyPressed[i]) {
             KeyPressed[i] = false;
-            sounds[i].stop();
+            //sounds[i].stop();
         }
     }
 });
 renderer.domElement.addEventListener('touchend', (event) => {
     tourched = false;
+    const num = event.touches.length;
+    const indexes = [];
+    for (i = 0; i < num; i++) {
+        const touch = event.touches[i];
+        const element = event.currentTarget;
+        const x = touch.clientX - element.offsetLeft;
+        const y = touch.clientY - element.offsetTop;
+        const w = element.offsetWidth;
+        const h = element.offsetHeight;
+        const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
+        raycaster.setFromCamera(mouse, camera);
+
+        const intersects = raycaster.intersectObjects(Keys);
+        if (intersects.length !== 0) {
+            index = Keys.indexOf(intersects[0].object);
+            if (!indexes.includes(index)) {
+                indexes.push(index);
+                //KeyPressed[index] = true;
+                //sounds[index].play();
+            }
+        }
+    }
     for (i = 0; i < 12; i++) {
-        if (KeyPressed[i]) {
+        if (!indexes.includes(i) && KeyPressed[i]) {
             KeyPressed[i] = false;
-            sounds[i].stop();
+            //sounds[i].stop();
         }
     }
 });
 renderer.domElement.addEventListener('touchcancel', (event) => {
     tourched = false;
+    const num = event.touches.length;
+    const indexes = [];
+    for (i = 0; i < num; i++) {
+        const touch = event.touches[i];
+        const element = event.currentTarget;
+        const x = touch.clientX - element.offsetLeft;
+        const y = touch.clientY - element.offsetTop;
+        const w = element.offsetWidth;
+        const h = element.offsetHeight;
+        const mouse = new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1);
+        raycaster.setFromCamera(mouse, camera);
+
+        const intersects = raycaster.intersectObjects(Keys);
+        if (intersects.length !== 0) {
+            index = Keys.indexOf(intersects[0].object);
+            if (!indexes.includes(index)) {
+                indexes.push(index);
+                //KeyPressed[index] = true;
+                //sounds[index].play();
+            }
+        }
+    }
     for (i = 0; i < 12; i++) {
-        if (KeyPressed[i]) {
+        if (!indexes.includes(i) && KeyPressed[i]) {
             KeyPressed[i] = false;
-            sounds[i].stop();
+            //sounds[i].stop();
         }
     }
 });
@@ -417,6 +474,13 @@ requestAnimationFrame(function animate() {
                     Keys[i].material.color = new THREE.Color(0x000000);
                 }
             }
+            for (let i = Rings.length - 1; i >= 0; i--) {
+                if (Rings[i].updateScale()) {
+                    Rings[i].dispose();
+                    Rings.splice(i, 1);
+                }
+            }
+            console.log(Rings.length);
         }
     }
     
